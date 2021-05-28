@@ -2,6 +2,7 @@ let lastTimeUpdate = 0;
 const time = document.getElementById('time');
 const svg = document.getElementById('info');
 const map = L.map('map', {center: [36, 136], zoom: svg.clientWidth < 600 ? 5 : 6});
+const att = '<a href="https://cio.go.jp/c19vaccine_opendata" target="_blank">政府CIOポータル</a> | <a href="https://github.com/nagix/japan-vaccination-tracker">&copy; Akihiko Kusanagi</a>';
 map.zoomControl.setPosition('topright');
 L.control.scale({imperial: false}).addTo(map);
 
@@ -59,6 +60,7 @@ Promise.all([
   'https://nagi-p.com/vaccination/prefecture.json'
 ].map(loadJSON)).then(([geojson, data, vaccination]) => {
   const frontera = L.geoJson(geojson, {
+    attribution: att,
     style: {color: '#00f', weight: 2, opacity: 0.6, fillOpacity: 0.1, fillColor: '#00f'},
     onEachFeature: function (feat, layer) {
       // layer.bindPopup(`${feat.properties.pref} ${feat.properties.name}`);
