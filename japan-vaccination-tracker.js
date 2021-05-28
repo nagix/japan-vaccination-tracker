@@ -1,3 +1,5 @@
+let lastTimeUpdate = 0;
+const time = document.getElementById('time');
 const svg = document.getElementById('info');
 const map = L.map('map', {center: [36, 136], zoom: svg.clientWidth < 600 ? 5 : 6});
 map.zoomControl.setPosition('topright');
@@ -31,6 +33,7 @@ function refreshLines(data, dict) {
     line.setAttributeNS(null, 'fill', 'transparent');
     lines.append(line);
     const label = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    label.id = `label-${item.pref}`;
     lines.append(label);
     const name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     name.setAttributeNS(null, 'x', 10 * factor);
@@ -81,17 +84,62 @@ Promise.all([
   });
 
   const dict = {};
+  const dates = {};
   for (const item of vaccination) {
     if (!dict[item.prefecture]) {
-      dict[item.prefecture] = {count: [0, 0], daily: {}};
+      dict[item.prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, layers: [], flash: 0};
     }
-    dict[item.prefecture].count[item.status - 1] += item.count;
+    dict[item.prefecture].base[item.status - 1] += item.count;
     if (!dict[item.prefecture].daily[item.date]) {
       dict[item.prefecture].daily[item.date] = [0, 0];
     }
     dict[item.prefecture].daily[item.date][item.status - 1] += item.count;
+    dates[item.date] = true;
   }
-  const dates = Object.keys(dict).sort().reverse();
+  const week = Object.keys(dates).sort().slice(-7);
+  for (const key of Object.keys(dict)) {
+    const item = dict[key];
+    item.count = [...item.base];
+    for (const date of week) {
+      if (item.daily[date]) {
+        item.rate[0] += item.daily[date][0] / 7;
+        item.rate[1] += item.daily[date][1] / 7;
+      }
+    }
+    frontera.eachLayer(layer => {
+      if (layer.feature.properties.pref === +key) {
+        item.layers.push(layer);
+      }
+    });
+  }
 
   refreshLines(data, dict);
+
+  (function frameRefresh() {
+    const localTime = luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
+    const millis = Date.now() - localTime.startOf('day').toMillis();
+    for (const key of Object.keys(dict)) {
+      const item = dict[key];
+      const estimate = Math.floor(item.base[0] + item.rate[0] * millis / 86400000);
+      if (item.count[0] < estimate) {
+        item.count[0] = estimate;
+        const count = svg.querySelector(`#label-${+key} text:last-child`);
+        count.textContent = estimate.toLocaleString();
+        item.flash = 61;
+      }
+      if (item.flash > 0) {
+        item.flash--;
+        if (item.flash % 10 === 0) {
+          for (const layer of item.layers) {
+            layer.setStyle({fillOpacity: 0.1 + item.flash / 100});
+          }
+        }
+      }
+    }
+    if (lastTimeUpdate !== Date.now() % 1000 * 1000) {
+      time.textContent = localTime.toFormat('yyyy年M月d日 HH:mm:ss');
+      lastTimeUpdate = Date.now() % 1000 * 1000;
+    }
+    window.requestAnimationFrame(frameRefresh);
+  })();
 });
