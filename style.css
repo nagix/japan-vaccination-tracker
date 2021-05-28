@@ -1,0 +1,26 @@
+html {width: 100%; height: 100%; margin: 0; padding: 0; background: #f2f2f2;}
+body {width: 100%; height: 100%; margin: 0; font-family: Arial, "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", Osaka, "メイリオ", Meiryo, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;}
+#todo {margin: 0 auto; max-width: 1100px; background: #ffffff;}
+#header, #footer {background: #246421; max-width: 1100px;}
+#header {height: 63px;}
+#header-inner {font-size: 24px; padding: 15px 0 0 20px;}
+#header-inner a {color: #ffffff; font-weight: bold; text-decoration: none;}
+#container {margin: 0 auto; max-width: 1000px; color: #444444; padding: 0 20px;}
+#container a {color: #4169E1;}
+h1 {color: #246421; margin: 30px 0 20px 0; font-size: 22px;}
+h2 {color: #246421; font-weight: bold; font-size: 18px; margin-left: 1em;}
+#asset-meta {font-size: 90%; color: #666; margin-bottom: 20px; padding-left: 16px; line-height: 1.8;}
+#pub {min-width: 300px; min-height: 250px; padding-bottom: 20px;}
+#contents {line-height: 2;}
+img {max-width: 100%; height: auto;}
+input[type="text"], input[type="button"], input[type="search"], input[type="submit"], select {height: 30px;}
+blockquote {margin: 0 0 0 30px; padding: 10px 20px; border-left: 5px solid #f2f2f2; font-family: YuMincho, "Yu Mincho", 'Times New Roman'; color: #000000;}
+#title {top: 10px; left: 10px; width: calc(100% - 60px); position: absolute; pointer-events: none; font-size: 20px; font-weight: 900;}
+#map {top: 0; left: 0; width: 100%; height: 100%; position: absolute;}
+#info {top: 0; left: 0; width: 100%; height: 100%; position: absolute; pointer-events: none;}
+#busqueda {width: 80%; margin: 0 auto; max-width: 600px; height: 62px;}
+#footer {margin-top: 15px;}
+#footer-inner {color: #ffffff; padding: 8px 0 20px 0; font-size: 90%; text-align: center;}
+#footer-inner a {color: #ffffff; margin-right: 20px;}
+.prefecture-name {fill: #666;}
+.prefecture-count {font-weight: 900; fill: #666;}
