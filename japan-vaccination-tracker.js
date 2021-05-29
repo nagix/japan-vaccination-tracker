@@ -1,3 +1,5 @@
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 let lastTimeUpdate = 0;
 const time = document.getElementById('time');
 const svg = document.getElementById('info');
@@ -16,7 +18,7 @@ function refreshLines(data, dict) {
   if (lines) {
     lines.remove();
   }
-  lines = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  lines = document.createElementNS(SVG_NS, 'g');
   lines.setAttributeNS(null, 'id', 'pref-lines');
   svg.append(lines);
 
@@ -25,32 +27,35 @@ function refreshLines(data, dict) {
     const lx = x - min.x;
     const ly = y - min.y;
     const factor = Math.pow(2, map.getZoom() - 6);
-    const dx = item.ll * Math.sin(item.lr * Math.PI / 180) * factor;
-    const dy = -item.ll * Math.cos(item.lr * Math.PI / 180) * factor;
-    const w = (dx < 0 ? -200 : 200) * factor;
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    line.setAttributeNS(null, 'd', `M${lx},${ly}l${dx},${dy}l${w},0`);
+    const dx = item.ll * Math.sin(item.lr * Math.PI / 180);
+    const dy = -item.ll * Math.cos(item.lr * Math.PI / 180);
+    const w = dx < 0 ? -200 : 200;
+    const leader = document.createElementNS(SVG_NS, 'g');
+    leader.setAttributeNS(null, 'transform', `translate(${lx} ${ly}) scale(${factor})`);
+    lines.append(leader);
+    const line = document.createElementNS(SVG_NS, 'path');
+    line.setAttributeNS(null, 'd', `M0,0l${dx},${dy}l${w},0`);
     line.setAttributeNS(null, 'stroke', '#999');
     line.setAttributeNS(null, 'fill', 'transparent');
-    lines.append(line);
-    const label = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    leader.append(line);
+    const label = document.createElementNS(SVG_NS, 'g');
     label.id = `label-${item.prefecture}`;
-    lines.append(label);
-    const name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    name.setAttributeNS(null, 'x', 10 * factor);
-    name.setAttributeNS(null, 'y', -3 * factor);
-    name.setAttributeNS(null, 'font-size', 14 * factor);
+    leader.append(label);
+    const name = document.createElementNS(SVG_NS, 'text');
+    name.setAttributeNS(null, 'x', 10);
+    name.setAttributeNS(null, 'y', -3);
+    name.setAttributeNS(null, 'font-size', 14);
     name.setAttributeNS(null, 'class', 'prefecture-name');
     name.textContent = item.name;
     label.append(name);
-    const count = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    count.setAttributeNS(null, 'x', 20 * factor + name.getBBox().width);
-    count.setAttributeNS(null, 'y', -3 * factor);
-    count.setAttributeNS(null, 'font-size', 21 * factor);
+    const count = document.createElementNS(SVG_NS, 'text');
+    count.setAttributeNS(null, 'x', 20 + name.getBBox().width);
+    count.setAttributeNS(null, 'y', -3);
+    count.setAttributeNS(null, 'font-size', 21);
     count.setAttributeNS(null, 'class', 'prefecture-count');
     count.textContent = dict[item.prefecture].count[0].toLocaleString();
     label.append(count);
-    label.setAttributeNS(null, 'transform', `translate(${lx + dx + (dx < 0 ? -200 * factor : 180 * factor - label.getBBox().width)} ${ly + dy})`);
+    label.setAttributeNS(null, 'transform', `translate(${dx + (dx < 0 ? -200 : 180 - label.getBBox().width)} ${dy})`);
   }
 }
 
