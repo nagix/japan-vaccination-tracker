@@ -21,6 +21,14 @@ function getMillisOfDay(lastDay) {
   return Date.now() - localTime.plus({days: 1}).startOf('day').toMillis();
 }
 
+function setOdometerDuration(selectors, duration) {
+  const style = document.head.querySelector('style:last-child');
+  style.appendChild(document.createTextNode([
+    `${selectors} .odometer-ribbon-inner`,
+    `{transition-duration: ${Math.min(duration, 2000)}ms;}`
+  ].join(' ')));
+}
+
 Promise.all([
   'prefectures.geojson',
   'prefectures.json',
@@ -60,6 +68,7 @@ Promise.all([
 
   const dict = {};
   const dates = {};
+  const total = {base: [0, 0], rate: [0, 0]};
   for (const item of vaccination) {
     if (!dict[item.prefecture]) {
       dict[item.prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, layers: [], flash: 0};
@@ -70,6 +79,7 @@ Promise.all([
     }
     dict[item.prefecture].daily[item.date][item.status - 1] += item.count;
     dates[item.date] = true;
+    total.base[item.status - 1] += item.count;
   }
 
   const week = Object.keys(dates).sort().slice(-7);
@@ -80,6 +90,8 @@ Promise.all([
       if (item.daily[date]) {
         item.rate[0] += item.daily[date][0] / 7;
         item.rate[1] += item.daily[date][1] / 7;
+        total.rate[0] += item.daily[date][0] / 7;
+        total.rate[1] += item.daily[date][1] / 7;
       }
     }
     item.count = [
@@ -92,6 +104,15 @@ Promise.all([
       }
     });
   }
+  total.count = [
+    Math.floor(total.base[0] + total.rate[0] * millis / 86400000),
+    Math.floor(total.base[1] + total.rate[1] * millis / 86400000)
+  ];
+  total.odometer = new Odometer({
+    el: document.querySelector('#total-count'),
+    value: total.count[0]
+  });
+  setOdometerDuration('#total-count', 86400000 / total.rate[0]);
 
   for (const item of data) {
     const {lng, lat, lr, ll} = item
@@ -123,8 +144,9 @@ Promise.all([
     element.style.fontSize = `${14 * factor}px`;
     dict[item.prefecture].odometer = new Odometer({
       el: element.querySelector('.odometer'),
-      value: dict[item.prefecture].count[0]
+      value: dict[item.prefecture].count[0],
     });
+    setOdometerDuration(`#label-${item.prefecture}`, 86400000 / dict[item.prefecture].rate[0]);
   }
 
   (function frameRefresh() {
@@ -145,6 +167,11 @@ Promise.all([
           }
         }
       }
+    }
+    const estimate = Math.floor(total.base[0] + total.rate[0] * millis / 86400000);
+    if (total.count[0] < estimate) {
+      total.count[0] = estimate;
+      total.odometer.update(estimate);
     }
     if (lastTimeUpdate !== Date.now() % 1000 * 1000) {
       time.textContent = getLocalTime().toFormat('yyyy年M月d日 HH:mm:ss');

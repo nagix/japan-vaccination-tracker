@@ -28,14 +28,16 @@
     <script src="https://cdn.jsdelivr.net/npm/luxon@1.27.0"></script>
     <script src="https://cdn.jsdelivr.net/npm/odometer@0.4.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.3.0"></script>
+    <style></style>
   </head>
   <body>
     <div id="map"></div>
     <svg id="info"></svg>
     <div id="title">
-      <span class="title">COVID-19 ワクチン接種<br>リアルタイムトラッカー</span>
-      <br>
-      <span class="time"><span id="time"></span><br>1回目接種回数推定値</span>
+      <span class="title">COVID-19 ワクチン接種<br>リアルタイムトラッカー</span><br>
+      <span class="desc">一般接種1回目 推定値</span><br>
+      <span id="total-count"></span><br>
+      <span id="time" class="desc"></span>
     </div>
     <script src="japan-vaccination-tracker.js"></script>
   </body>
