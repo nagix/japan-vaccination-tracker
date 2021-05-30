@@ -16,9 +16,9 @@ function getLocalTime() {
   return luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
 }
 
-function getMillisOfDay() {
-  const localTime = luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
-  return Date.now() - getLocalTime().startOf('day').toMillis();
+function getMillisOfDay(lastDay) {
+  const localTime = luxon.DateTime.fromFormat(lastDay, 'yyyy-MM-dd', {zone: 'Asia/Tokyo'});
+  return Date.now() - localTime.plus({days: 1}).startOf('day').toMillis();
 }
 
 Promise.all([
@@ -73,7 +73,7 @@ Promise.all([
   }
 
   const week = Object.keys(dates).sort().slice(-7);
-  const millis = getMillisOfDay();
+  const millis = getMillisOfDay(week[6]);
   for (const key of Object.keys(dict)) {
     const item = dict[key];
     for (const date of week) {
@@ -128,7 +128,7 @@ Promise.all([
   }
 
   (function frameRefresh() {
-    const millis = getMillisOfDay();
+    const millis = getMillisOfDay(week[6]);
     for (const key of Object.keys(dict)) {
       const item = dict[key];
       const estimate = Math.floor(item.base[0] + item.rate[0] * millis / 86400000);
