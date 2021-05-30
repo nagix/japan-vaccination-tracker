@@ -100,7 +100,7 @@ Promise.all([
     const x2 = x1 + ll * Math.sin(lr * Math.PI / 180) * factor;
     const y2 = y1 - ll * Math.cos(lr * Math.PI / 180) * factor;
     const anchor = map.unproject([x2, y2]);
-    const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200), y2]);
+    const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200) * factor, y2]);
 
     const leader = L.geoJson(turf.lineString([[lng, lat], [anchor.lng, anchor.lat], [anchorEnd.lng, anchorEnd.lat]]), {
       style: {color: '#999', weight: 1, fillColor: 'transparent'}
@@ -116,6 +116,11 @@ Promise.all([
         '</div>'
       ].join('')});
     const marker = L.marker([anchor.lat, anchor.lng], {icon}).addTo(map);
+    const element = document.querySelector(`#label-${item.prefecture}`);
+    element.style.padding = `0 ${10 * factor}px`;
+    element.style.width = `${200 * factor}px`;
+    element.style.height = `${22 * factor}px`;
+    element.style.fontSize = `${14 * factor}px`;
     const od = new Odometer({
       el: document.querySelector(`#label-${item.prefecture} .odometer`),
       value: dict[item.prefecture].count[0]
