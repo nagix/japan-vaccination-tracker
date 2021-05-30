@@ -17,7 +17,7 @@ input[type="text"], input[type="button"], input[type="search"], input[type="subm
 blockquote {margin: 0 0 0 30px; padding: 10px 20px; border-left: 5px solid #f2f2f2; font-family: YuMincho, "Yu Mincho", 'Times New Roman'; color: #000000;}
 #map {top: 0; left: 0; width: 100%; height: 100%; position: absolute;}
 #info {top: 0; left: 0; width: 100%; height: 100%; position: absolute; pointer-events: none;}
-#title {top: 10px; left: 10px; width: calc(100% - 60px); position: absolute; pointer-events: none; z-index: 999;}
+#title {top: 10px; left: 10px; padding: 0 0 4px 6px; position: absolute; background-color: rgba(221, 221, 221, 0.9); pointer-events: none; z-index: 999;}
 #busqueda {width: 80%; margin: 0 auto; max-width: 600px; height: 62px;}
 #footer {margin-top: 15px;}
 #footer-inner {color: #ffffff; padding: 8px 0 20px 0; font-size: 90%; text-align: center;}

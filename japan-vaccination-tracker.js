@@ -121,8 +121,8 @@ Promise.all([
     element.style.width = `${200 * factor}px`;
     element.style.height = `${22 * factor}px`;
     element.style.fontSize = `${14 * factor}px`;
-    const od = new Odometer({
-      el: document.querySelector(`#label-${item.prefecture} .odometer`),
+    dict[item.prefecture].odometer = new Odometer({
+      el: element.querySelector('.odometer'),
       value: dict[item.prefecture].count[0]
     });
   }
@@ -134,8 +134,7 @@ Promise.all([
       const estimate = Math.floor(item.base[0] + item.rate[0] * millis / 86400000);
       if (item.count[0] < estimate) {
         item.count[0] = estimate;
-        const count = document.querySelector(`#label-${key} .prefecture-count`);
-        count.innerText = estimate;
+        item.odometer.update(estimate);
         item.flash = 61;
       }
       if (item.flash > 0) {
