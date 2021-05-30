@@ -25,7 +25,7 @@ function setOdometerDuration(selectors, duration) {
   const style = document.head.querySelector('style:last-child');
   style.appendChild(document.createTextNode([
     `${selectors} .odometer-ribbon-inner`,
-    `{transition-duration: ${Math.min(duration, 2000)}ms;}`
+    `{transition-duration: ${Math.min(duration, 2000)}ms; transition-property: transform}`
   ].join(' ')));
 }
 
