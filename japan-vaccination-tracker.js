@@ -12,51 +12,13 @@ function loadJSON(url) {
   return fetch(url).then(async response => response.json());
 }
 
-function refreshLines(data, dict) {
-  const {min} = map.getPixelBounds();
-  let lines = document.getElementById('pref-lines');
-  if (lines) {
-    lines.remove();
-  }
-  lines = document.createElementNS(SVG_NS, 'g');
-  lines.setAttributeNS(null, 'id', 'pref-lines');
-  svg.append(lines);
+function getLocalTime() {
+  return luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
+}
 
-  for (const item of data) {
-    const {x, y} = map.project(item);
-    const lx = x - min.x;
-    const ly = y - min.y;
-    const factor = Math.pow(2, map.getZoom() - 6);
-    const dx = item.ll * Math.sin(item.lr * Math.PI / 180);
-    const dy = -item.ll * Math.cos(item.lr * Math.PI / 180);
-    const w = dx < 0 ? -200 : 200;
-    const leader = document.createElementNS(SVG_NS, 'g');
-    leader.setAttributeNS(null, 'transform', `translate(${lx} ${ly}) scale(${factor})`);
-    lines.append(leader);
-    const line = document.createElementNS(SVG_NS, 'path');
-    line.setAttributeNS(null, 'd', `M0,0l${dx},${dy}l${w},0`);
-    line.setAttributeNS(null, 'stroke', '#999');
-    line.setAttributeNS(null, 'fill', 'transparent');
-    leader.append(line);
-    const label = document.createElementNS(SVG_NS, 'g');
-    label.id = `label-${item.prefecture}`;
-    leader.append(label);
-    const name = document.createElementNS(SVG_NS, 'text');
-    name.setAttributeNS(null, 'x', 10);
-    name.setAttributeNS(null, 'y', -3);
-    name.setAttributeNS(null, 'font-size', 14);
-    name.setAttributeNS(null, 'class', 'prefecture-name');
-    name.textContent = item.name;
-    label.append(name);
-    const count = document.createElementNS(SVG_NS, 'text');
-    count.setAttributeNS(null, 'x', 20 + name.getBBox().width);
-    count.setAttributeNS(null, 'y', -3);
-    count.setAttributeNS(null, 'font-size', 21);
-    count.setAttributeNS(null, 'class', 'prefecture-count');
-    count.textContent = dict[item.prefecture].count[0].toLocaleString();
-    label.append(count);
-    label.setAttributeNS(null, 'transform', `translate(${dx + (dx < 0 ? -200 : 180 - label.getBBox().width)} ${dy})`);
-  }
+function getMillisOfDay() {
+  const localTime = luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
+  return Date.now() - getLocalTime().startOf('day').toMillis();
 }
 
 Promise.all([
@@ -80,14 +42,20 @@ Promise.all([
     }
   }).addTo(map);
 
-  map.on('move', () => {
-    refreshLines(data, dict);
-  });
   map.on('zoomstart', () => {
-    svg.style.visibility = 'hidden';
+    document.querySelectorAll('.label').forEach(element => {
+      element.style.visibility = 'hidden';
+    });
   });
   map.on('zoomend', () => {
-    svg.style.visibility = 'visible';
+    document.querySelectorAll('.label').forEach(element => {
+      const factor = Math.pow(2, map.getZoom() - 6);
+      element.style.padding = `0 ${10 * factor}px`;
+      element.style.width = `${200 * factor}px`;
+      element.style.height = `${22 * factor}px`;
+      element.style.fontSize = `${14 * factor}px`;
+      element.style.visibility = 'visible';
+    });
   });
 
   const dict = {};
@@ -103,16 +71,21 @@ Promise.all([
     dict[item.prefecture].daily[item.date][item.status - 1] += item.count;
     dates[item.date] = true;
   }
+
   const week = Object.keys(dates).sort().slice(-7);
+  const millis = getMillisOfDay();
   for (const key of Object.keys(dict)) {
     const item = dict[key];
-    item.count = [...item.base];
     for (const date of week) {
       if (item.daily[date]) {
         item.rate[0] += item.daily[date][0] / 7;
         item.rate[1] += item.daily[date][1] / 7;
       }
     }
+    item.count = [
+      Math.floor(item.base[0] + item.rate[0] * millis / 86400000),
+      Math.floor(item.base[1] + item.rate[1] * millis / 86400000)
+    ];
     frontera.eachLayer(layer => {
       if (layer.feature.properties.prefecture === key) {
         item.layers.push(layer);
@@ -120,18 +93,44 @@ Promise.all([
     });
   }
 
-  refreshLines(data, dict);
+  for (const item of data) {
+    const {lng, lat, lr, ll} = item
+    const {x: x1, y: y1} = map.project(item);
+    const factor = Math.pow(2, map.getZoom() - 6);
+    const x2 = x1 + ll * Math.sin(lr * Math.PI / 180) * factor;
+    const y2 = y1 - ll * Math.cos(lr * Math.PI / 180) * factor;
+    const anchor = map.unproject([x2, y2]);
+    const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200), y2]);
+
+    const leader = L.geoJson(turf.lineString([[lng, lat], [anchor.lng, anchor.lat], [anchorEnd.lng, anchorEnd.lat]]), {
+      style: {color: '#999', weight: 1, fillColor: 'transparent'}
+    }).addTo(map);
+
+    const icon = L.divIcon({
+      className: 'label-container',
+      iconSize: [0, 0],
+      html: [
+        `<div id="label-${item.prefecture}" class="label ${item.lr < 0 ? 'left' : 'right'}">`,
+        `<span class="prefecture-name">${item.name}</span>`,
+        `<span class="prefecture-count odometer">${dict[item.prefecture].count[0]}</span>`,
+        '</div>'
+      ].join('')});
+    const marker = L.marker([anchor.lat, anchor.lng], {icon}).addTo(map);
+    const od = new Odometer({
+      el: document.querySelector(`#label-${item.prefecture} .odometer`),
+      value: dict[item.prefecture].count[0]
+    });
+  }
 
   (function frameRefresh() {
-    const localTime = luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
-    const millis = Date.now() - localTime.startOf('day').toMillis();
+    const millis = getMillisOfDay();
     for (const key of Object.keys(dict)) {
       const item = dict[key];
       const estimate = Math.floor(item.base[0] + item.rate[0] * millis / 86400000);
       if (item.count[0] < estimate) {
         item.count[0] = estimate;
-        const count = svg.querySelector(`#label-${key} text:last-child`);
-        count.textContent = estimate.toLocaleString();
+        const count = document.querySelector(`#label-${key} .prefecture-count`);
+        count.innerText = estimate;
         item.flash = 61;
       }
       if (item.flash > 0) {
@@ -144,9 +143,10 @@ Promise.all([
       }
     }
     if (lastTimeUpdate !== Date.now() % 1000 * 1000) {
-      time.textContent = localTime.toFormat('yyyy年M月d日 HH:mm:ss');
+      time.textContent = getLocalTime().toFormat('yyyy年M月d日 HH:mm:ss');
       lastTimeUpdate = Date.now() % 1000 * 1000;
     }
     window.requestAnimationFrame(frameRefresh);
   })();
+
 });
