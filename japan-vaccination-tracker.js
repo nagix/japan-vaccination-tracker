@@ -115,18 +115,14 @@ Promise.all([
   setOdometerDuration('#total-count', 86400000 / total.rate[0]);
 
   for (const item of data) {
-    const {lng, lat, lr, ll} = item
+    const {lr, ll} = item
     const {x: x1, y: y1} = map.project(item);
     const factor = Math.pow(2, map.getZoom() - 6);
     const x2 = x1 + ll * Math.sin(lr * Math.PI / 180) * factor;
     const y2 = y1 - ll * Math.cos(lr * Math.PI / 180) * factor;
     const anchor = map.unproject([x2, y2]);
     const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200) * factor, y2]);
-
-    const leader = L.geoJson(turf.lineString([[lng, lat], [anchor.lng, anchor.lat], [anchorEnd.lng, anchorEnd.lat]]), {
-      style: {color: '#999', weight: 1, fillColor: 'transparent'}
-    }).addTo(map);
-
+    const leader = L.polyline([item, anchor, anchorEnd], {color: '#999', weight: 1}).addTo(map);
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
@@ -137,7 +133,7 @@ Promise.all([
         `<span class="prefecture-count odometer">${dict[item.prefecture].count[0]}</span>`,
         '</span></div>'
       ].join('')});
-    const marker = L.marker([anchor.lat, anchor.lng], {icon}).addTo(map);
+    const marker = L.marker(anchor, {icon}).addTo(map);
     const element = document.querySelector(`#label-${item.prefecture}`);
     element.style.padding = `0 ${10 * factor}px`;
     element.style.width = `${200 * factor}px`;
