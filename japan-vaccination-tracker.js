@@ -41,6 +41,14 @@ function changeStyle(item, active) {
   }
 }
 
+function changeElementScale(element, factor) {
+  const style = element.style;
+  style.padding = `0 ${10 * factor}px`;
+  style.width = `${200 * factor}px`;
+  style.height = `${22 * factor}px`;
+  style.fontSize = `${14 * factor}px`;
+}
+
 Promise.all([
   'prefectures.geojson',
   'prefectures.json',
@@ -69,11 +77,7 @@ Promise.all([
   });
   map.on('zoomend', () => {
     document.querySelectorAll('.label').forEach(element => {
-      const factor = Math.pow(2, map.getZoom() - 6);
-      element.style.padding = `0 ${10 * factor}px`;
-      element.style.width = `${200 * factor}px`;
-      element.style.height = `${22 * factor}px`;
-      element.style.fontSize = `${14 * factor}px`;
+      changeElementScale(element, Math.pow(2, map.getZoom() - 6));
       element.style.visibility = 'visible';
     });
   });
@@ -81,17 +85,19 @@ Promise.all([
   const dict = {};
   const dates = {};
   const total = {base: [0, 0], rate: [0, 0]};
-  for (const item of vaccination) {
-    if (!dict[item.prefecture]) {
-      dict[item.prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, flash: 0};
+  for (const {date, prefecture, status, count} of vaccination) {
+    let item = dict[prefecture];
+    if (!item) {
+      item = dict[prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, flash: 0};
     }
-    dict[item.prefecture].base[item.status - 1] += item.count;
-    if (!dict[item.prefecture].daily[item.date]) {
-      dict[item.prefecture].daily[item.date] = [0, 0];
+    let daily = item.daily[date];
+    if (!daily) {
+      daily = item.daily[date] = [0, 0];
     }
-    dict[item.prefecture].daily[item.date][item.status - 1] += item.count;
-    dates[item.date] = true;
-    total.base[item.status - 1] += item.count;
+    item.base[status - 1] += count;
+    total.base[status - 1] += count;
+    daily[status - 1] += count;
+    dates[date] = true;
   }
 
   const week = Object.keys(dates).sort().slice(-7);
@@ -99,11 +105,12 @@ Promise.all([
   for (const key of Object.keys(dict)) {
     const item = dict[key];
     for (const date of week) {
-      if (item.daily[date]) {
-        item.rate[0] += item.daily[date][0] / 7;
-        item.rate[1] += item.daily[date][1] / 7;
-        total.rate[0] += item.daily[date][0] / 7;
-        total.rate[1] += item.daily[date][1] / 7;
+      const daily = item.daily[date];
+      if (daily) {
+        item.rate[0] += daily[0] / 7;
+        item.rate[1] += daily[1] / 7;
+        total.rate[0] += daily[0] / 7;
+        total.rate[1] += daily[1] / 7;
       }
     }
     item.count = [
@@ -126,53 +133,51 @@ Promise.all([
   });
   setOdometerDuration('#total-count', 86400000 / total.rate[0]);
 
-  for (const item of data) {
-    const {lr, ll} = item
-    const {x: x1, y: y1} = map.project(item);
+  for (const entry of data) {
+    const {prefecture, name, lr, ll} = entry
+    const item = dict[prefecture];
+    const {x: x1, y: y1} = map.project(entry);
     const factor = Math.pow(2, map.getZoom() - 6);
     const x2 = x1 + ll * Math.sin(lr * Math.PI / 180) * factor;
     const y2 = y1 - ll * Math.cos(lr * Math.PI / 180) * factor;
     const anchor = map.unproject([x2, y2]);
     const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200) * factor, y2]);
-    const leader = L.polyline([item, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1}).addTo(map);
+    const leader = L.polyline([entry, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1}).addTo(map);
     leader.on({
       mouseover: () => {
-        changeStyle(dict[item.prefecture], true);
+        changeStyle(item, true);
       },
       mouseout: () => {
-        changeStyle(dict[item.prefecture]);
+        changeStyle(item);
       }
     });
-    dict[item.prefecture].leader = leader;
+    item.leader = leader;
 
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
       html: [
-        `<div id="label-${item.prefecture}" class="label ${item.lr < 0 ? 'left' : 'right'}">`,
+        `<div id="label-${prefecture}" class="label ${lr < 0 ? 'left' : 'right'}">`,
         '<span class="label-group">',
-        `<span class="prefecture-name">${item.name}</span>`,
-        `<span class="prefecture-count odometer">${dict[item.prefecture].count[0]}</span>`,
+        `<span class="prefecture-name">${name}</span>`,
+        `<span class="prefecture-count odometer">${item.count[0]}</span>`,
         '</span></div>'
       ].join('')});
     const marker = L.marker(anchor, {icon}).addTo(map);
-    const element = document.querySelector(`#label-${item.prefecture}`);
-    element.style.padding = `0 ${10 * factor}px`;
-    element.style.width = `${200 * factor}px`;
-    element.style.height = `${22 * factor}px`;
-    element.style.fontSize = `${14 * factor}px`;
-    dict[item.prefecture].label = element;
-    dict[item.prefecture].odometer = new Odometer({
+    const element = document.querySelector(`#label-${prefecture}`);
+    changeElementScale(element, factor);
+    item.label = element;
+    item.odometer = new Odometer({
       el: element.querySelector('.odometer'),
-      value: dict[item.prefecture].count[0],
+      value: item.count[0],
     });
-    setOdometerDuration(`#label-${item.prefecture}`, 86400000 / dict[item.prefecture].rate[0]);
+    setOdometerDuration(`#label-${prefecture}`, 86400000 / item.rate[0]);
     const group = element.querySelector('.label-group');
     group.addEventListener('mouseover', () => {
-      changeStyle(dict[item.prefecture], true);
+      changeStyle(item, true);
     });
     group.addEventListener('mouseout', () => {
-      changeStyle(dict[item.prefecture]);
+      changeStyle(item);
     });
   }
 
