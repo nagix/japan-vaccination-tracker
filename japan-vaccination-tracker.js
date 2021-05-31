@@ -29,6 +29,18 @@ function setOdometerDuration(selectors, duration) {
   ].join(' ')));
 }
 
+function changeStyle(item, active) {
+  if (active) {
+    item.layer.setStyle({color: '#f00', fillColor: '#f00'});
+    item.leader.setStyle({color: '#f00'});
+    item.label.classList.add('active');
+  } else {
+    item.layer.setStyle({color: '#00f', fillColor: '#00f'});
+    item.leader.setStyle({color: '#999'});
+    item.label.classList.remove('active');
+  }
+}
+
 Promise.all([
   'prefectures.geojson',
   'prefectures.json',
@@ -40,11 +52,11 @@ Promise.all([
     onEachFeature: function (feat, layer) {
       // layer.bindPopup(`${feat.properties.prefecture} ${feat.properties.name}`);
       layer.on({
-        mouseover: e => {
-          e.target.setStyle({color: '#f00', fillColor: '#f00'});
+        mouseover: () => {
+          changeStyle(dict[feat.properties.prefecture], true);
         },
-        mouseout: e => {
-          frontera.resetStyle(e.target);
+        mouseout: () => {
+          changeStyle(dict[feat.properties.prefecture]);
         }
       });
     }
@@ -122,7 +134,17 @@ Promise.all([
     const y2 = y1 - ll * Math.cos(lr * Math.PI / 180) * factor;
     const anchor = map.unproject([x2, y2]);
     const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200) * factor, y2]);
-    const leader = L.polyline([item, anchor, anchorEnd], {color: '#999', weight: 1}).addTo(map);
+    const leader = L.polyline([item, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1}).addTo(map);
+    leader.on({
+      mouseover: () => {
+        changeStyle(dict[item.prefecture], true);
+      },
+      mouseout: () => {
+        changeStyle(dict[item.prefecture]);
+      }
+    });
+    dict[item.prefecture].leader = leader;
+
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
@@ -139,11 +161,19 @@ Promise.all([
     element.style.width = `${200 * factor}px`;
     element.style.height = `${22 * factor}px`;
     element.style.fontSize = `${14 * factor}px`;
+    dict[item.prefecture].label = element;
     dict[item.prefecture].odometer = new Odometer({
       el: element.querySelector('.odometer'),
       value: dict[item.prefecture].count[0],
     });
     setOdometerDuration(`#label-${item.prefecture}`, 86400000 / dict[item.prefecture].rate[0]);
+    const group = element.querySelector('.label-group');
+    group.addEventListener('mouseover', () => {
+      changeStyle(dict[item.prefecture], true);
+    });
+    group.addEventListener('mouseout', () => {
+      changeStyle(dict[item.prefecture]);
+    });
   }
 
   (function frameRefresh() {
