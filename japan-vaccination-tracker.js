@@ -71,7 +71,7 @@ Promise.all([
   const total = {base: [0, 0], rate: [0, 0]};
   for (const item of vaccination) {
     if (!dict[item.prefecture]) {
-      dict[item.prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, layers: [], flash: 0};
+      dict[item.prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, flash: 0};
     }
     dict[item.prefecture].base[item.status - 1] += item.count;
     if (!dict[item.prefecture].daily[item.date]) {
@@ -100,7 +100,7 @@ Promise.all([
     ];
     frontera.eachLayer(layer => {
       if (layer.feature.properties.prefecture === key) {
-        item.layers.push(layer);
+        item.layer = layer;
       }
     });
   }
@@ -162,9 +162,7 @@ Promise.all([
       if (item.flash > 0) {
         item.flash--;
         if (item.flash % 10 === 0) {
-          for (const layer of item.layers) {
-            layer.setStyle({fillOpacity: 0.1 + item.flash / 100});
-          }
+          item.layer.setStyle({fillOpacity: 0.1 + item.flash / 100});
         }
       }
     }
