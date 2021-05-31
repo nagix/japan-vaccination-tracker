@@ -25,9 +25,10 @@ blockquote {margin: 0 0 0 30px; padding: 10px 20px; border-left: 5px solid #f2f2
 #footer-inner a {color: #ffffff; margin-right: 20px;}
 .title {font-size: 20px; font-weight: 900;}
 .desc {font-size: 14px;}
-.label {padding: 0 10px; width: 200px; height: 22px; font-size: 14px; box-sizing: border-box;}
+.label {padding: 0 10px; width: 200px; height: 22px; font-size: 14px; box-sizing: border-box; pointer-events: none;}
 .left {transform: translate(-100%, -100%); text-align: left;}
 .right {transform: translate(0, -100%); text-align: right;}
+.label-group {pointer-events: auto;}
 .prefecture-name {color: #666;}
 .prefecture-count {margin-left: 10px; color: #666; font-size: 150%; font-weight: 900;}
 .odometer.odometer-auto-theme {vertical-align: baseline;}

@@ -128,13 +128,14 @@ Promise.all([
     }).addTo(map);
 
     const icon = L.divIcon({
-      className: 'label-container',
+      className: '',
       iconSize: [0, 0],
       html: [
         `<div id="label-${item.prefecture}" class="label ${item.lr < 0 ? 'left' : 'right'}">`,
+        '<span class="label-group">',
         `<span class="prefecture-name">${item.name}</span>`,
         `<span class="prefecture-count odometer">${dict[item.prefecture].count[0]}</span>`,
-        '</div>'
+        '</span></div>'
       ].join('')});
     const marker = L.marker([anchor.lat, anchor.lng], {icon}).addTo(map);
     const element = document.querySelector(`#label-${item.prefecture}`);
