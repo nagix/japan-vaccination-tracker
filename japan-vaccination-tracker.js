@@ -54,8 +54,7 @@ function showChart(map, item) {
   map.openPopup([
     `<div class="chart-title">${item.name}</div>`,
     `<div class="chart-body"><canvas id="${id}"></canvas></div>`
-  ].join(''), item.latLng);
-
+  ].join(''), item.latLng, {closeOnClick: false});
   const dates = Object.keys(item.daily).sort();
   const chart = new Chart(document.querySelector(`#${id}`), {
     type: 'bar',
@@ -104,6 +103,7 @@ Promise.all([
           changeStyle(dict[feat.properties.prefecture]);
         },
         click: () => {
+          changeStyle(dict[feat.properties.prefecture], true);
           showChart(map, dict[feat.properties.prefecture]);
         }
       });
@@ -211,8 +211,8 @@ Promise.all([
       changeStyle(item);
     });
     group.addEventListener('click', e => {
+      changeStyle(item, true);
       showChart(map, item);
-      e.stopPropagation();
     });
   }
 
