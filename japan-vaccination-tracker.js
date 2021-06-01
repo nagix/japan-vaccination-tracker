@@ -1,4 +1,5 @@
-const SVG_NS = 'http://www.w3.org/2000/svg';
+const CIO_PORTAL = 'https://cio.go.jp/c19vaccine_opendata';
+const GITHUB = 'https://github.com/nagix/japan-vaccination-tracker';
 
 let lastTimeUpdate = 0;
 const total = {};
@@ -9,9 +10,8 @@ const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || 
 let active;
 
 const time = document.getElementById('time');
-const svg = document.getElementById('info');
-const map = L.map('map', {center: [36, 136], zoom: svg.clientWidth < 600 ? 5 : 6});
-const att = '<a href="https://cio.go.jp/c19vaccine_opendata" target="_blank">政府CIOポータル</a> | <a href="https://github.com/nagix/japan-vaccination-tracker">&copy; Akihiko Kusanagi</a>';
+const map = L.map('map', {center: [36, 136], zoom: document.body.clientWidth < 600 ? 5 : 6});
+const att = `<a href="${CIO_PORTAL}" target="_blank">政府CIOポータル</a> | <a href="${GITHUB}" target="_blank">&copy; Akihiko Kusanagi</a>`;
 map.zoomControl.setPosition('topright');
 L.control.scale({imperial: false}).addTo(map);
 
@@ -24,8 +24,14 @@ function getLocalTime() {
 }
 
 function getMillisOfDay(lastDay) {
-  const localTime = luxon.DateTime.fromFormat(lastDay, 'yyyy-MM-dd', {zone: 'Asia/Tokyo'});
+  const localTime = luxon.DateTime.fromISO(lastDay, {zone: 'Asia/Tokyo'});
   return Date.now() - localTime.plus({days: 1}).startOf('day').toMillis();
+}
+
+function stopPropagation(event) {
+  if (event instanceof MouseEvent) {
+    event.stopPropagation();
+  }
 }
 
 function refreshDict(vaccination) {
@@ -118,17 +124,13 @@ function onClick(prefecture) {
     if (active) {
       changeStyle(active, true);
       showChart(active);
-      if (e instanceof MouseEvent) {
-        e.stopPropagation();
-      }
+      stopPropagation(e);
     }
   } : e => {
     const item = dict[prefecture];
     if (item) {
       showChart(item);
-      if (e instanceof MouseEvent) {
-        e.stopPropagation();
-      }
+      stopPropagation(e);
     }
   };
 }
@@ -146,7 +148,10 @@ function showChart(item) {
   const popup = L.popup({autoPanPaddingTopLeft: [5, 155]})
     .setLatLng(item.latLng)
     .setContent([
-      `<div class="chart-title">${item.name}</div>`,
+      '<div>',
+      `<span class="chart-title">${item.name}</span>`,
+      '<span class="chart-subtitle">接種数日次推移</span>',
+      '</div>',
       `<div class="chart-body"><canvas id="${id}"></canvas></div>`
     ].join(''))
     .openOn(map);
@@ -179,7 +184,7 @@ function showChart(item) {
             maxRotation: 0,
             callback: function(value) {
               const label = this.getLabelForValue(value);
-              return luxon.DateTime.fromFormat(label, 'yyyy-MM-dd').toFormat('M/d');
+              return luxon.DateTime.fromISO(label).toFormat('M/d');
             }
           }
         },
@@ -218,7 +223,7 @@ Promise.all([
     attribution: att,
     bubblingMouseEvents: false,
     style: {color: '#00f', weight: 2, opacity: 0.6, fillOpacity: 0.1, fillColor: '#00f'},
-    onEachFeature: function (feat, layer) {
+    onEachFeature: (feat, layer) => {
       layer.on({
         mouseover: onMouseOver(feat.properties.prefecture),
         mouseout: onMouseOut(feat.properties.prefecture),
