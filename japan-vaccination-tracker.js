@@ -1,6 +1,13 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 let lastTimeUpdate = 0;
+const total = {};
+const dict = {};
+const dates = {};
+let lastDay;
+const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+let active;
+
 const time = document.getElementById('time');
 const svg = document.getElementById('info');
 const map = L.map('map', {center: [36, 136], zoom: svg.clientWidth < 600 ? 5 : 6});
@@ -21,6 +28,54 @@ function getMillisOfDay(lastDay) {
   return Date.now() - localTime.plus({days: 1}).startOf('day').toMillis();
 }
 
+function refreshDict(vaccination) {
+  total.base = [0, 0];
+  total.rate = [0, 0];
+  for (const key of Object.keys(dict)) {
+    const item = dict[key];
+    item.base = [0, 0];
+    item.rate = [0, 0];
+    item.daily = {};
+  }
+  for (const key of Object.keys(dates)) {
+    delete dates[key];
+  }
+  for (const {date, prefecture, status, count} of vaccination) {
+    const item = dict[prefecture];
+    let daily = item.daily[date];
+    if (!daily) {
+      daily = item.daily[date] = [0, 0];
+    }
+    item.base[status - 1] += count;
+    total.base[status - 1] += count;
+    daily[status - 1] += count;
+    dates[date] = true;
+  }
+  const week = Object.keys(dates).sort().slice(-7);
+  lastDay = week[6];
+  const millis = getMillisOfDay(lastDay);
+  for (const key of Object.keys(dict)) {
+    const item = dict[key];
+    for (const date of week) {
+      const daily = item.daily[date];
+      if (daily) {
+        item.rate[0] += daily[0] / 7;
+        item.rate[1] += daily[1] / 7;
+        total.rate[0] += daily[0] / 7;
+        total.rate[1] += daily[1] / 7;
+      }
+    }
+    item.count = [
+      Math.floor(item.base[0] + item.rate[0] * millis / 86400000),
+      Math.floor(item.base[1] + item.rate[1] * millis / 86400000)
+    ];
+  }
+  total.count = [
+    Math.floor(total.base[0] + total.rate[0] * millis / 86400000),
+    Math.floor(total.base[1] + total.rate[1] * millis / 86400000)
+  ];
+}
+
 function setOdometerDuration(selectors, duration) {
   const style = document.head.querySelector('style:last-child');
   style.appendChild(document.createTextNode([
@@ -29,8 +84,8 @@ function setOdometerDuration(selectors, duration) {
   ].join(' ')));
 }
 
-function changeStyle(item, active) {
-  if (active) {
+function changeStyle(item, activate) {
+  if (activate) {
     item.layer.setStyle({color: '#f00', fillColor: '#f00'});
     item.leader.setStyle({color: '#f00'});
     item.label.classList.add('active');
@@ -41,6 +96,43 @@ function changeStyle(item, active) {
   }
 }
 
+function onMouseOver(prefecture) {
+  return touchDevice ? () => {} : () => {
+    changeStyle(dict[prefecture], true);
+  };
+}
+
+function onMouseOut(prefecture) {
+  return touchDevice ? () => {} : () => {
+    changeStyle(dict[prefecture]);
+  };
+}
+
+function onClick(prefecture) {
+  return touchDevice ? e => {
+    const item = dict[prefecture];
+    if (active) {
+      changeStyle(active);
+    }
+    active = item;
+    if (active) {
+      changeStyle(active, true);
+      showChart(active);
+      if (e instanceof MouseEvent) {
+        e.stopPropagation();
+      }
+    }
+  } : e => {
+    const item = dict[prefecture];
+    if (item) {
+      showChart(item);
+      if (e instanceof MouseEvent) {
+        e.stopPropagation();
+      }
+    }
+  };
+}
+
 function changeElementScale(element, factor) {
   const style = element.style;
   style.padding = `0 ${10 * factor}px`;
@@ -49,9 +141,9 @@ function changeElementScale(element, factor) {
   style.fontSize = `${14 * factor}px`;
 }
 
-function showChart(map, item) {
+function showChart(item) {
   const id = `chart-${Date.now()}`;
-  const popup = L.popup({autoPanPaddingTopLeft: [5, 150]})
+  const popup = L.popup({autoPanPaddingTopLeft: [5, 155]})
     .setLatLng(item.latLng)
     .setContent([
       `<div class="chart-title">${item.name}</div>`,
@@ -84,12 +176,14 @@ function showChart(map, item) {
             }
           }
         }
+      },
+      interaction: {
+        intersect: false
       }
     }
   });
   popup.on('remove', () => {
     chart.destroy();
-    changeStyle(item);
   });
 }
 
@@ -100,88 +194,34 @@ Promise.all([
 ].map(loadJSON)).then(([geojson, data, vaccination]) => {
   const frontera = L.geoJson(geojson, {
     attribution: att,
+    bubblingMouseEvents: false,
     style: {color: '#00f', weight: 2, opacity: 0.6, fillOpacity: 0.1, fillColor: '#00f'},
     onEachFeature: function (feat, layer) {
       layer.on({
-        mouseover: () => {
-          changeStyle(dict[feat.properties.prefecture], true);
-        },
-        mouseout: () => {
-          changeStyle(dict[feat.properties.prefecture]);
-        },
-        click: () => {
-          changeStyle(dict[feat.properties.prefecture], true);
-          showChart(map, dict[feat.properties.prefecture]);
-        }
+        mouseover: onMouseOver(feat.properties.prefecture),
+        mouseout: onMouseOut(feat.properties.prefecture),
+        click: onClick(feat.properties.prefecture)
       });
     }
   }).addTo(map);
 
-  map.on('zoomstart', () => {
-    document.querySelectorAll('.label').forEach(element => {
-      element.style.visibility = 'hidden';
-    });
+  map.on({
+    zoomstart: () => {
+      document.querySelectorAll('.label').forEach(element => {
+        element.style.visibility = 'hidden';
+      });
+    },
+    zoomend: () => {
+      document.querySelectorAll('.label').forEach(element => {
+        changeElementScale(element, Math.pow(2, map.getZoom() - 6));
+        element.style.visibility = 'visible';
+      });
+    },
+    click: onClick()
   });
-  map.on('zoomend', () => {
-    document.querySelectorAll('.label').forEach(element => {
-      changeElementScale(element, Math.pow(2, map.getZoom() - 6));
-      element.style.visibility = 'visible';
-    });
-  });
-
-  const dict = {};
-  const dates = {};
-  const total = {base: [0, 0], rate: [0, 0]};
-  for (const {date, prefecture, status, count} of vaccination) {
-    let item = dict[prefecture];
-    if (!item) {
-      item = dict[prefecture] = {base: [0, 0], rate: [0, 0], daily: {}, flash: 0};
-    }
-    let daily = item.daily[date];
-    if (!daily) {
-      daily = item.daily[date] = [0, 0];
-    }
-    item.base[status - 1] += count;
-    total.base[status - 1] += count;
-    daily[status - 1] += count;
-    dates[date] = true;
-  }
-
-  const week = Object.keys(dates).sort().slice(-7);
-  const millis = getMillisOfDay(week[6]);
-  for (const key of Object.keys(dict)) {
-    const item = dict[key];
-    for (const date of week) {
-      const daily = item.daily[date];
-      if (daily) {
-        item.rate[0] += daily[0] / 7;
-        item.rate[1] += daily[1] / 7;
-        total.rate[0] += daily[0] / 7;
-        total.rate[1] += daily[1] / 7;
-      }
-    }
-    item.count = [
-      Math.floor(item.base[0] + item.rate[0] * millis / 86400000),
-      Math.floor(item.base[1] + item.rate[1] * millis / 86400000)
-    ];
-    frontera.eachLayer(layer => {
-      if (layer.feature.properties.prefecture === key) {
-        item.layer = layer;
-      }
-    });
-  }
-  total.count = [
-    Math.floor(total.base[0] + total.rate[0] * millis / 86400000),
-    Math.floor(total.base[1] + total.rate[1] * millis / 86400000)
-  ];
-  total.odometer = new Odometer({
-    el: document.querySelector('#total-count'),
-    value: total.count[0]
-  });
-  setOdometerDuration('#total-count', 86400000 / total.rate[0]);
 
   for (const {prefecture, name, lat, lng, lr, ll} of data) {
-    const item = dict[prefecture];
+    const item = dict[prefecture] = {flash: 0};
     const latLng = item.latLng = L.latLng(lat, lng);
     const {x: x1, y: y1} = map.project(latLng);
     const factor = Math.pow(2, map.getZoom() - 6);
@@ -196,36 +236,45 @@ Promise.all([
       iconSize: [0, 0],
       html: [
         `<div id="label-${prefecture}" class="label ${lr < 0 ? 'left' : 'right'}">`,
-        '<span class="label-group">',
+        '<div class="label-group">',
         `<span class="prefecture-name">${name}</span>`,
-        `<span class="prefecture-count odometer">${item.count[0]}</span>`,
-        '</span></div>'
+        '<span class="prefecture-count odometer"></span>',
+        '</div></div>'
       ].join('')});
     const marker = L.marker(anchor, {icon}).addTo(map);
     const element = document.querySelector(`#label-${prefecture}`);
     changeElementScale(element, factor);
     item.label = element;
-    item.odometer = new Odometer({
-      el: element.querySelector('.odometer'),
-      value: item.count[0],
-    });
-    setOdometerDuration(`#label-${prefecture}`, 86400000 / item.rate[0]);
+    for (const layer of frontera.getLayers()) {
+      if (layer.feature.properties.prefecture === prefecture) {
+        item.layer = layer;
+        break;
+      }
+    }
     const group = element.querySelector('.label-group');
-    group.addEventListener('mouseover', () => {
-      changeStyle(item, true);
-    });
-    group.addEventListener('mouseout', () => {
-      changeStyle(item);
-    });
-    group.addEventListener('click', e => {
-      changeStyle(item, true);
-      showChart(map, item);
-      e.stopPropagation();
-    });
+    group.addEventListener('mouseover', onMouseOver(prefecture));
+    group.addEventListener('mouseout', onMouseOut(prefecture));
+    group.addEventListener('click', onClick(prefecture));
   }
 
+  refreshDict(vaccination);
+
+  for (const key of Object.keys(dict)) {
+    const item = dict[key];
+    item.odometer = new Odometer({
+      el: document.querySelector(`#label-${key} .odometer`),
+      value: item.count[0]
+    });
+    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0]);
+  }
+  total.odometer = new Odometer({
+    el: document.querySelector('#total-count'),
+    value: total.count[0]
+  });
+  setOdometerDuration('#total-count', 86400000 / total.rate[0]);
+
   (function frameRefresh() {
-    const millis = getMillisOfDay(week[6]);
+    const millis = getMillisOfDay(lastDay);
     for (const key of Object.keys(dict)) {
       const item = dict[key];
       const estimate = Math.floor(item.base[0] + item.rate[0] * millis / 86400000);
