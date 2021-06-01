@@ -155,9 +155,15 @@ function showChart(item) {
     type: 'bar',
     data: {
       datasets: [{
+        order: 1,
         label: '一般接種1回目',
         data: dates.map(x => ({x, y: item.daily[x][0]})),
         backgroundColor: 'rgb(78, 121, 167)'
+      }, {
+        order: 0,
+        label: '一般接種2回目',
+        data: dates.map(x => ({x, y: item.daily[x][1]})),
+        backgroundColor: 'rgb(242, 142, 43)'
       }]
     },
     options: {
@@ -165,6 +171,7 @@ function showChart(item) {
       scales: {
         x: {
           type: 'category',
+          stacked: true,
           grid: {
             offset: false
           },
@@ -175,10 +182,25 @@ function showChart(item) {
               return luxon.DateTime.fromFormat(label, 'yyyy-MM-dd').toFormat('M/d');
             }
           }
+        },
+        y: {
+          stacked: true
         }
       },
       interaction: {
         intersect: false
+      },
+      plugins: {
+        legend: {
+          reverse: true,
+          labels: {
+            pointStyle: 'rect',
+            usePointStyle: true
+          }
+        },
+        tooltip: {
+          itemSort: (a, b) => a.datasetIndex - b.datasetIndex
+        }
       }
     }
   });
