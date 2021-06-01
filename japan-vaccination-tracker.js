@@ -49,6 +49,44 @@ function changeElementScale(element, factor) {
   style.fontSize = `${14 * factor}px`;
 }
 
+function showChart(map, item) {
+  const id = `chart-${Date.now()}`;
+  map.openPopup([
+    `<div class="chart-title">${item.name}</div>`,
+    `<div class="chart-body"><canvas id="${id}"></canvas></div>`
+  ].join(''), item.latLng);
+
+  const dates = Object.keys(item.daily).sort();
+  const chart = new Chart(document.querySelector(`#${id}`), {
+    type: 'bar',
+    data: {
+      datasets: [{
+        label: '一般接種1回目',
+        data: dates.map(x => ({x, y: item.daily[x][0]})),
+        backgroundColor: 'rgb(78, 121, 167)'
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'category',
+          grid: {
+            offset: false
+          },
+          ticks: {
+            maxRotation: 0,
+            callback: function(value) {
+              const label = this.getLabelForValue(value);
+              return luxon.DateTime.fromFormat(label, 'yyyy-MM-dd').toFormat('M/d');
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
 Promise.all([
   'prefectures.geojson',
   'prefectures.json',
@@ -58,13 +96,15 @@ Promise.all([
     attribution: att,
     style: {color: '#00f', weight: 2, opacity: 0.6, fillOpacity: 0.1, fillColor: '#00f'},
     onEachFeature: function (feat, layer) {
-      // layer.bindPopup(`${feat.properties.prefecture} ${feat.properties.name}`);
       layer.on({
         mouseover: () => {
           changeStyle(dict[feat.properties.prefecture], true);
         },
         mouseout: () => {
           changeStyle(dict[feat.properties.prefecture]);
+        },
+        click: () => {
+          showChart(map, dict[feat.properties.prefecture]);
         }
       });
     }
@@ -133,26 +173,17 @@ Promise.all([
   });
   setOdometerDuration('#total-count', 86400000 / total.rate[0]);
 
-  for (const entry of data) {
-    const {prefecture, name, lr, ll} = entry
+  for (const {prefecture, name, lat, lng, lr, ll} of data) {
     const item = dict[prefecture];
-    const {x: x1, y: y1} = map.project(entry);
+    const latLng = item.latLng = L.latLng(lat, lng);
+    const {x: x1, y: y1} = map.project(latLng);
     const factor = Math.pow(2, map.getZoom() - 6);
     const x2 = x1 + ll * Math.sin(lr * Math.PI / 180) * factor;
     const y2 = y1 - ll * Math.cos(lr * Math.PI / 180) * factor;
     const anchor = map.unproject([x2, y2]);
     const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200) * factor, y2]);
-    const leader = L.polyline([entry, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1}).addTo(map);
-    leader.on({
-      mouseover: () => {
-        changeStyle(item, true);
-      },
-      mouseout: () => {
-        changeStyle(item);
-      }
-    });
-    item.leader = leader;
-
+    item.leader = L.polyline([latLng, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1, interactive: false}).addTo(map);
+    item.name = name;
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
@@ -178,6 +209,10 @@ Promise.all([
     });
     group.addEventListener('mouseout', () => {
       changeStyle(item);
+    });
+    group.addEventListener('click', e => {
+      showChart(map, item);
+      e.stopPropagation();
     });
   }
 
