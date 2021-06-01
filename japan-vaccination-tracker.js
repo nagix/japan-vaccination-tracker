@@ -51,7 +51,7 @@ function changeElementScale(element, factor) {
 
 function showChart(map, item) {
   const id = `chart-${Date.now()}`;
-  const popup = L.popup()
+  const popup = L.popup({autoPanPaddingTopLeft: [5, 150]})
     .setLatLng(item.latLng)
     .setContent([
       `<div class="chart-title">${item.name}</div>`,
