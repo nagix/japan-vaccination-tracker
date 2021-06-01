@@ -51,10 +51,13 @@ function changeElementScale(element, factor) {
 
 function showChart(map, item) {
   const id = `chart-${Date.now()}`;
-  map.openPopup([
-    `<div class="chart-title">${item.name}</div>`,
-    `<div class="chart-body"><canvas id="${id}"></canvas></div>`
-  ].join(''), item.latLng, {closeOnClick: false});
+  const popup = L.popup()
+    .setLatLng(item.latLng)
+    .setContent([
+      `<div class="chart-title">${item.name}</div>`,
+      `<div class="chart-body"><canvas id="${id}"></canvas></div>`
+    ].join(''))
+    .openOn(map);
   const dates = Object.keys(item.daily).sort();
   const chart = new Chart(document.querySelector(`#${id}`), {
     type: 'bar',
@@ -83,6 +86,10 @@ function showChart(map, item) {
         }
       }
     }
+  });
+  popup.on('remove', () => {
+    chart.destroy();
+    changeStyle(item);
   });
 }
 
@@ -213,6 +220,7 @@ Promise.all([
     group.addEventListener('click', e => {
       changeStyle(item, true);
       showChart(map, item);
+      e.stopPropagation();
     });
   }
 
