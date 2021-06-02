@@ -72,13 +72,13 @@ function refreshDict(vaccination) {
       }
     }
     item.count = [
-      Math.floor(item.base[0] + item.rate[0] * millis / 86400000),
-      Math.floor(item.base[1] + item.rate[1] * millis / 86400000)
+      Math.floor(item.base[0] + item.rate[0] * ease(millis / 86400000)),
+      Math.floor(item.base[1] + item.rate[1] * ease(millis / 86400000))
     ];
   }
   total.count = [
-    Math.floor(total.base[0] + total.rate[0] * millis / 86400000),
-    Math.floor(total.base[1] + total.rate[1] * millis / 86400000)
+    Math.floor(total.base[0] + total.rate[0] * ease(millis / 86400000)),
+    Math.floor(total.base[1] + total.rate[1] * ease(millis / 86400000))
   ];
 }
 
@@ -214,6 +214,19 @@ function showChart(item) {
   });
 }
 
+function ease(t) {
+  const t0 = t % 1;
+  let v;
+  if (t0 > 0.25 && t0 <= 0.5) {
+    v = 4 * t0 * t0 - 2 * t0 + 0.25;
+  } else if (t0 > 0.5 && t0 <= 0.75) {
+    v = 2 * t - 0.75;
+  } else if (t0 > 0.75) {
+    v = -4 * t0 * t0 + 8 * t0 - 3;
+  }
+  return Math.floor(t) + v;
+}
+
 Promise.all([
   'prefectures.geojson',
   'prefectures.json',
@@ -292,19 +305,19 @@ Promise.all([
       el: document.querySelector(`#label-${key} .odometer`),
       value: item.count[0]
     });
-    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0]);
+    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0] / 2);
   }
   total.odometer = new Odometer({
     el: document.querySelector('#total-count'),
     value: total.count[0]
   });
-  setOdometerDuration('#total-count', 86400000 / total.rate[0]);
+  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 2);
 
   (function frameRefresh() {
     const millis = getMillisOfDay(lastDay);
     for (const key of Object.keys(dict)) {
       const item = dict[key];
-      const estimate = Math.floor(item.base[0] + item.rate[0] * millis / 86400000);
+      const estimate = Math.floor(item.base[0] + item.rate[0] * ease(millis / 86400000));
       if (item.count[0] < estimate) {
         item.count[0] = estimate;
         item.odometer.update(estimate);
@@ -317,7 +330,7 @@ Promise.all([
         }
       }
     }
-    const estimate = Math.floor(total.base[0] + total.rate[0] * millis / 86400000);
+    const estimate = Math.floor(total.base[0] + total.rate[0] * ease(millis / 86400000));
     if (total.count[0] < estimate) {
       total.count[0] = estimate;
       total.odometer.update(estimate);
