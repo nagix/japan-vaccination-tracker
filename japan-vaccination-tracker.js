@@ -216,7 +216,7 @@ function showChart(item) {
 
 function ease(t) {
   const t0 = t % 1;
-  let v;
+  let v = 0;
   if (t0 > 0.25 && t0 <= 0.5) {
     v = 4 * t0 * t0 - 2 * t0 + 0.25;
   } else if (t0 > 0.5 && t0 <= 0.75) {
@@ -305,13 +305,13 @@ Promise.all([
       el: document.querySelector(`#label-${key} .odometer`),
       value: item.count[0]
     });
-    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0] / 1.5);
+    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0] / 2);
   }
   total.odometer = new Odometer({
     el: document.querySelector('#total-count'),
     value: total.count[0]
   });
-  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 1.5);
+  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 2);
 
   (function frameRefresh() {
     const millis = getMillisOfDay(lastDay);
