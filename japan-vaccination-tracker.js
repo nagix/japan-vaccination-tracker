@@ -305,13 +305,13 @@ Promise.all([
       el: document.querySelector(`#label-${key} .odometer`),
       value: item.count[0]
     });
-    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0] / 2);
+    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0] / 1.5);
   }
   total.odometer = new Odometer({
     el: document.querySelector('#total-count'),
     value: total.count[0]
   });
-  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 2);
+  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 1.5);
 
   (function frameRefresh() {
     const millis = getMillisOfDay(lastDay);
