@@ -2,10 +2,11 @@ const CIO_PORTAL = 'https://cio.go.jp/c19vaccine_opendata';
 const GITHUB = 'https://github.com/nagix/japan-vaccination-tracker';
 
 let lastTimeUpdate = 0;
+let lastDataUpdate = getLocalTime().startOf('hour').toMillis();
 const total = {};
 const dict = {};
 const dates = {};
-let lastDay;
+let startOfToday;
 const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
 let active;
 
@@ -21,11 +22,6 @@ function loadJSON(url) {
 
 function getLocalTime() {
   return luxon.DateTime.fromObject({zone: 'Asia/Tokyo'});
-}
-
-function getMillisOfDay(lastDay) {
-  const localTime = luxon.DateTime.fromISO(lastDay, {zone: 'Asia/Tokyo'});
-  return Date.now() - localTime.plus({days: 1}).startOf('day').toMillis();
 }
 
 function stopPropagation(event) {
@@ -58,8 +54,9 @@ function refreshDict(vaccination) {
     dates[date] = true;
   }
   const week = Object.keys(dates).sort().slice(-7);
-  lastDay = week[6];
-  const millis = getMillisOfDay(lastDay);
+  const lastDay = luxon.DateTime.fromISO(week[6], {zone: 'Asia/Tokyo'});
+  startOfToday = lastDay.plus({days: 1}).startOf('day').toMillis();
+  const t = ease((getLocalTime().toMillis() - startOfToday) / 86400000);
   for (const key of Object.keys(dict)) {
     const item = dict[key];
     for (const date of week) {
@@ -72,13 +69,13 @@ function refreshDict(vaccination) {
       }
     }
     item.count = [
-      Math.floor(item.base[0] + item.rate[0] * ease(millis / 86400000)),
-      Math.floor(item.base[1] + item.rate[1] * ease(millis / 86400000))
+      Math.floor(item.base[0] + item.rate[0] * t),
+      Math.floor(item.base[1] + item.rate[1] * t)
     ];
   }
   total.count = [
-    Math.floor(total.base[0] + total.rate[0] * ease(millis / 86400000)),
-    Math.floor(total.base[1] + total.rate[1] * ease(millis / 86400000))
+    Math.floor(total.base[0] + total.rate[0] * t),
+    Math.floor(total.base[1] + total.rate[1] * t)
   ];
 }
 
@@ -88,6 +85,14 @@ function setOdometerDuration(selectors, duration) {
     `${selectors} .odometer-ribbon-inner`,
     `{transition-duration: ${Math.min(duration, 2000)}ms; transition-property: transform}`
   ].join(' ')));
+}
+
+function refreshOdometerDuration() {
+  document.head.querySelector('style:last-child').innerHTML = '';
+  for (const key of Object.keys(dict)) {
+    setOdometerDuration(`#label-${key}`, 86400000 / dict[key].rate[0] / 2);
+  }
+  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 2);
 }
 
 function changeStyle(item, activate) {
@@ -361,6 +366,7 @@ Promise.all([
   }
 
   refreshDict(vaccination);
+  refreshOdometerDuration();
 
   for (const key of Object.keys(dict)) {
     const item = dict[key];
@@ -368,39 +374,50 @@ Promise.all([
       el: document.querySelector(`#label-${key} .odometer`),
       value: item.count[0]
     });
-    setOdometerDuration(`#label-${key}`, 86400000 / item.rate[0] / 2);
   }
   total.odometer = new Odometer({
     el: document.querySelector('#total-count'),
     value: total.count[0]
   });
-  setOdometerDuration('#total-count', 86400000 / total.rate[0] / 2);
 
+  var nextFrame;
   (function frameRefresh() {
-    const millis = getMillisOfDay(lastDay);
-    for (const key of Object.keys(dict)) {
-      const item = dict[key];
-      const estimate = Math.floor(item.base[0] + item.rate[0] * ease(millis / 86400000));
-      if (item.count[0] < estimate) {
-        item.count[0] = estimate;
-        item.odometer.update(estimate);
-        item.flash = 61;
-      }
-      if (item.flash > 0) {
-        item.flash--;
-        if (item.flash % 10 === 0) {
-          item.layer.setStyle({fillOpacity: 0.1 + item.flash / 100});
+    const now = performance.now();
+    const localTime = getLocalTime();
+    const t = ease((localTime.toMillis() - startOfToday) / 86400000);
+    if (!(nextFrame > now)) {
+      for (const key of Object.keys(dict)) {
+        const item = dict[key];
+        const estimate = Math.floor(item.base[0] + item.rate[0] * t);
+        if (item.count[0] < estimate) {
+          item.count[0] = estimate;
+          item.odometer.update(estimate);
+          item.flash = 7;
+        }
+        if (item.flash > 0) {
+          item.flash--;
+          item.layer.setStyle({fillOpacity: 0.1 + item.flash * 0.1});
         }
       }
+      nextFrame = Math.max((nextFrame || 0) + 1000 / 6, now);
     }
-    const estimate = Math.floor(total.base[0] + total.rate[0] * ease(millis / 86400000));
+    const estimate = Math.floor(total.base[0] + total.rate[0] * t);
     if (total.count[0] < estimate) {
       total.count[0] = estimate;
       total.odometer.update(estimate);
     }
-    if (lastTimeUpdate !== Date.now() % 1000 * 1000) {
-      time.textContent = getLocalTime().toFormat('yyyy年M月d日 HH:mm:ss');
-      lastTimeUpdate = Date.now() % 1000 * 1000;
+    const timeUpdate = localTime.startOf('second').toMillis();
+    if (lastTimeUpdate !== timeUpdate) {
+      time.textContent = localTime.toFormat('yyyy年M月d日 HH:mm:ss');
+      lastTimeUpdate = timeUpdate;
+    }
+    const dataUpdate = localTime.startOf('hour').toMillis();
+    if (lastDataUpdate !== dataUpdate) {
+      loadJSON('https://nagi-p.com/vaccination/prefecture.json').then(vaccination => {
+        refreshDict(vaccination);
+        refreshOdometerDuration();
+      });
+      lastDataUpdate = dataUpdate;
     }
     window.requestAnimationFrame(frameRefresh);
   })();
