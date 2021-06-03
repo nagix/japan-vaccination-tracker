@@ -149,26 +149,30 @@ function showChart(item) {
     .setLatLng(item.latLng)
     .setContent([
       '<div>',
-      `<span class="chart-title">${item.name}</span>`,
-      '<span class="chart-subtitle">接種数日次推移</span>',
-      '</div>',
+      `<div class="chart-title">${item.name}</div>`,
+      `<div id="${id}-select" class="chart-select">`,
+      '<div id="chart-total" class="chart-select-item active">累計人数</div>',
+      '<div id="chart-count" class="chart-select-item">接種回数</div>',
+      '<div id="chart-ratio" class="chart-select-item">接種率</div>',
+      '</div></div>',
       `<div class="chart-body"><canvas id="${id}"></canvas></div>`
     ].join(''))
     .openOn(map);
   const dates = Object.keys(item.daily).sort();
-  const chart = new Chart(document.querySelector(`#${id}`), {
+  const chart = new Chart(document.getElementById(id), {
     type: 'bar',
     data: {
+      labels: dates,
       datasets: [{
         order: 1,
-        label: '一般接種1回目',
-        data: dates.map(x => ({x, y: item.daily[x][0]})),
-        backgroundColor: 'rgb(78, 121, 167)'
+        backgroundColor: 'rgb(78, 121, 167)',
+        pointRadius: 0,
+        data: dates.map(() => 0)
       }, {
         order: 0,
-        label: '一般接種2回目',
-        data: dates.map(x => ({x, y: item.daily[x][1]})),
-        backgroundColor: 'rgb(242, 142, 43)'
+        backgroundColor: 'rgb(242, 142, 43)',
+        pointRadius: 0,
+        data: dates.map(() => 0)
       }]
     },
     options: {
@@ -209,9 +213,67 @@ function showChart(item) {
       }
     }
   });
+  refreshChart(chart, 'chart-total', item);
   popup.on('remove', () => {
     chart.destroy();
   });
+  const select = document.getElementById(`${id}-select`);
+  select.querySelectorAll('.chart-select-item').forEach(element => {
+    element.addEventListener('click', e => {
+      select.querySelector('.chart-select-item.active').classList.remove('active');
+      refreshChart(chart, e.target.id, item);
+      e.target.classList.add('active');
+    });
+  });
+}
+
+function refreshChart(chart, type, item) {
+  const {labels, datasets} = chart.data;
+  const yScale = chart.options.scales.y;
+  const daily = [0, 0];
+  if (type === 'chart-total') {
+    datasets[0].type = 'bar';
+    datasets[0].label = '一般接種';
+    datasets[0].borderColor = 'transparent';
+    datasets[1].type = 'bar';
+    datasets[1].label = 'うち2回目完了';
+    datasets[1].borderColor = 'transparent';
+    for (let i = 0; i < labels.length; i++) {
+      datasets[0].data[i] = daily[0] += item.daily[labels[i]][0];
+      datasets[1].data[i] = daily[1] += item.daily[labels[i]][1];
+    }
+    yScale.stacked = false;
+    yScale.ticks.callback = Chart.Ticks.formatters.numeric;
+  } else if (type === 'chart-count') {
+    datasets[0].type = 'bar';
+    datasets[0].label = '一般接種1回目';
+    datasets[0].borderColor = 'transparent';
+    datasets[1].type = 'bar';
+    datasets[1].label = '一般接種2回目';
+    datasets[1].borderColor = 'transparent';
+    for (let i = 0; i < labels.length; i++) {
+      datasets[0].data[i] = item.daily[labels[i]][0];
+      datasets[1].data[i] = item.daily[labels[i]][1];
+    }
+    yScale.stacked = true;
+    yScale.ticks.callback = Chart.Ticks.formatters.numeric;
+  } else {
+    datasets[0].type = 'line';
+    datasets[0].label = '一般接種1回目';
+    datasets[0].borderColor = 'rgb(78, 121, 167)';
+    datasets[1].type = 'line';
+    datasets[1].label = '一般接種2回目';
+    datasets[1].borderColor = 'rgb(242, 142, 43)';
+    for (let i = 0; i < labels.length; i++) {
+      daily[0] += item.daily[labels[i]][0];
+      daily[1] += item.daily[labels[i]][1];
+      datasets[0].data[i] = daily[0] / item.population * 100;
+      datasets[1].data[i] = daily[1] / item.population * 100;
+    }
+    yScale.stacked = false;
+    yScale.ticks.callback = v => `${v}%`;
+  }
+  chart.update();
 }
 
 function ease(t) {
@@ -260,7 +322,7 @@ Promise.all([
     click: onClick()
   });
 
-  for (const {prefecture, name, lat, lng, lr, ll} of data) {
+  for (const {prefecture, name, population, lat, lng, lr, ll} of data) {
     const item = dict[prefecture] = {flash: 0};
     const latLng = item.latLng = L.latLng(lat, lng);
     const {x: x1, y: y1} = map.project(latLng);
@@ -271,6 +333,7 @@ Promise.all([
     const anchorEnd = map.unproject([x2 + (lr < 0 ? -200 : 200) * factor, y2]);
     item.leader = L.polyline([latLng, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1, interactive: false}).addTo(map);
     item.name = name;
+    item.population = population;
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
