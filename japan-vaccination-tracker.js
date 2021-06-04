@@ -188,6 +188,7 @@ function changeElementScale(element, factor) {
   style.width = `${200 * factor}px`;
   style.height = `${22 * factor}px`;
   style.fontSize = `${14 * factor}px`;
+  style.lineHeight = `${22 * factor}px`;
 }
 
 function showChart(item) {
