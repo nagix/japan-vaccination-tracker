@@ -1,20 +1,27 @@
 html {width: 100%; height: 100%; margin: 0; padding: 0;}
 body {width: 100%; height: 100%; margin: 0; font-family: Arial, "ヒラギノ角ゴ Pro W3", "Hiragino Kaku Gothic Pro", Osaka, "メイリオ", Meiryo, "ＭＳ Ｐゴシック", "MS PGothic", sans-serif;}
 #map {top: 0; left: 0; width: 100%; height: 100%; position: absolute;}
-#title {top: 10px; left: 10px; padding: 0 0 4px 6px; position: absolute; background-color: rgba(221, 221, 221, 0.8); pointer-events: none; z-index: 999;}
-#total-count {font-size: 150%; font-weight: 900;}
+#title {top: 10px; left: 10px; padding: 0 6px 4px 6px; position: absolute; background-color: rgba(221, 221, 221, 0.8); pointer-events: none; z-index: 999;}
+#total-count, #total-unit {font-size: 150%; font-weight: 900;}
 .title {font-size: 20px; font-weight: 900;}
 .desc {font-size: 14px;}
-.label {padding: 0 10px; width: 200px; height: 22px; font-size: 14px; color: #666; box-sizing: border-box; pointer-events: none;}
+.label {padding: 0 10px; width: 200px; height: 22px; font-size: 14px; line-height: 22px; color: #666; box-sizing: border-box; pointer-events: none;}
 .label.active {color: #f66;}
 .left {transform: translate(-100%, -100%); text-align: left;}
 .right {transform: translate(0, -100%); text-align: right;}
 .label-group {display: inline-block; pointer-events: auto;}
 .prefecture-name {}
 .prefecture-count {margin-left: 10px; font-size: 150%; font-weight: 900; pointer-events: none;}
+.prefecture-count-unit {font-size: 150%; font-weight: 900;}
 .odometer.odometer-auto-theme {vertical-align: baseline;}
+.data-select {margin: 4px 0; padding: 3px; background-color: #fff; border: 2px solid #aaa; border-radius: 4px; font-size: 14px; pointer-events: auto; cursor: pointer;}
+.data-select.active {cursor: default;}
+.data-select-item {padding: 4px; height: 16px; text-align: center; display: none;}
+.data-select-item.active {display: block; pointer-events: none; cursor: default;}
+.data-select.active .data-select-item {display: block; pointer-events: auto; cursor: pointer;}
+.data-select.active .data-select-item.active {color: #fff; background-color: #666; border-radius: 2px; pointer-events: none; cursor: default;}
 .chart-title {display: inline-block; font-size: 18px; font-weight: bold; line-height: 32px; vertical-align: middle;}
-.chart-select {display: inline-block; margin-left: 10px; padding: 3px; border: 1px solid #666; border-radius: 4px; vertical-align: middle;}
+.chart-select {display: inline-block; margin-left: 10px; padding: 3px; border: 1px solid #aaa; border-radius: 4px; vertical-align: middle;}
 .chart-select-item {display: inline-block; padding: 4px; width: 60px; height: 16px; color: #666; text-align: center; cursor: pointer;}
 .chart-select-item.active {color: #fff; background-color: #666; border-radius: 2px; cursor: default; pointer-events: none;}
 .chart-body {width: 300px; height: 200px;}

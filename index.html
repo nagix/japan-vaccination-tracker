@@ -34,9 +34,14 @@
   <body>
     <div id="map"></div>
     <div id="title">
-      <span class="title">COVID-19 ワクチン接種<br>リアルタイムトラッカー</span><br>
-      <span class="desc">一般接種1回目 推定値</span><br>
-      <span id="total-count"></span><br>
+      <div class="title">COVID-19 ワクチン接種<br>リアルタイムトラッカー</div>
+      <div id="data-select" class="data-select">
+        <div id="data-count-1" class="data-select-item active">一般接種 累計人数 推定値</div>
+        <div id="data-count-2" class="data-select-item">一般接種2回目 累計人数 推定値</div>
+        <div id="data-ratio-1" class="data-select-item">一般接種1回目 接種率 推定値</div>
+        <div id="data-ratio-2" class="data-select-item">一般接種2回目 接種率 推定値</div>
+      </div>
+      <span id="total-count"></span><span id="total-count-unit"></span><br>
       <span id="time" class="desc"></span>
     </div>
     <script src="japan-vaccination-tracker.js"></script>

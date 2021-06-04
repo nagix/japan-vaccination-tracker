@@ -9,6 +9,7 @@ const dates = {};
 let startOfToday;
 const touchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
 let active;
+let display = 'data-count-1';
 
 const time = document.getElementById('time');
 const map = L.map('map', {center: [36, 136], zoom: document.body.clientWidth < 600 ? 5 : 6});
@@ -72,26 +73,65 @@ function refreshDict(vaccination) {
       Math.floor(item.base[0] + item.rate[0] * t),
       Math.floor(item.base[1] + item.rate[1] * t)
     ];
+    item.ratio = [
+      Math.floor(item.count[0] / item.population * 1000000),
+      Math.floor(item.count[1] / item.population * 1000000)
+    ];
   }
   total.count = [
     Math.floor(total.base[0] + total.rate[0] * t),
     Math.floor(total.base[1] + total.rate[1] * t)
   ];
+  total.ratio = [
+    Math.floor(total.count[0] / total.population * 1000000),
+    Math.floor(total.count[1] / total.population * 1000000)
+  ];
 }
 
 function setOdometerDuration(selectors, duration) {
-  const style = document.head.querySelector('style:last-child');
-  style.appendChild(document.createTextNode([
-    `${selectors} .odometer-ribbon-inner`,
-    `{transition-duration: ${Math.min(duration, 2000)}ms; transition-property: transform}`
-  ].join(' ')));
+  if (duration < 2000) {
+    const style = document.head.querySelector('style:last-child');
+    style.appendChild(document.createTextNode([
+      `${selectors} .odometer-ribbon-inner`,
+      `{transition-duration: ${duration}ms; transition-property: transform}`
+    ].join(' ')));
+  }
 }
 
-function refreshOdometerDuration() {
+function resetOdometer() {
+  const index = display.endsWith('1') ? 0 : 1;
+  const isCount = display.startsWith('data-count');
   document.head.querySelector('style:last-child').innerHTML = '';
   for (const key of Object.keys(dict)) {
+    const item = dict[key];
+    const container = document.querySelector(`#label-${key} .prefecture-count`);
+    const el = document.createElement('span');
+    const value = isCount ? item.count[index] : Math.floor(item.count[index] / item.population * 1000000) / 10000;
+    el.className = 'odometer';
+    container.innerHTML = '';
+    container.appendChild(el);
+    item.odometer = new Odometer({
+      el,
+      format: '(,ddd).dddd',
+      value
+    });
+    document.querySelector(`#label-${key} .prefecture-count-unit`)
+      .innerHTML = isCount ? '' : '%';
     setOdometerDuration(`#label-${key}`, 86400000 / dict[key].rate[0] / 2);
   }
+  const container = document.querySelector(`#total-count`);
+  const el = document.createElement('span');
+  const value = isCount ? total.count[index] : Math.floor(total.count[index] / total.population * 1000000) / 10000;
+  el.className = 'odometer';
+  container.innerHTML = '';
+  container.appendChild(el);
+  total.odometer = new Odometer({
+    el,
+    format: '(,ddd).dddd',
+    value
+  });
+  document.querySelector('#total-count-unit')
+    .innerHTML = isCount ? '' : '%';
   setOdometerDuration('#total-count', 86400000 / total.rate[0] / 2);
 }
 
@@ -131,12 +171,14 @@ function onClick(prefecture) {
       showChart(active);
       stopPropagation(e);
     }
+    document.getElementById('data-select').classList.remove('active');
   } : e => {
     const item = dict[prefecture];
     if (item) {
       showChart(item);
       stopPropagation(e);
     }
+    document.getElementById('data-select').classList.remove('active');
   };
 }
 
@@ -327,6 +369,7 @@ Promise.all([
     click: onClick()
   });
 
+  total.population = 0;
   for (const {prefecture, name, population, lat, lng, lr, ll} of data) {
     const item = dict[prefecture] = {flash: 0};
     const latLng = item.latLng = L.latLng(lat, lng);
@@ -339,6 +382,7 @@ Promise.all([
     item.leader = L.polyline([latLng, anchor, anchorEnd], {color: '#999', opacity: 0.6, weight: 1, interactive: false}).addTo(map);
     item.name = name;
     item.population = population;
+    total.population += population;
     const icon = L.divIcon({
       className: '',
       iconSize: [0, 0],
@@ -346,7 +390,8 @@ Promise.all([
         `<div id="label-${prefecture}" class="label ${lr < 0 ? 'left' : 'right'}">`,
         '<div class="label-group">',
         `<span class="prefecture-name">${name}</span>`,
-        '<span class="prefecture-count odometer"></span>',
+        '<span class="prefecture-count"></span>',
+        '<span class="prefecture-count-unit"></span>',
         '</div></div>'
       ].join('')});
     const marker = L.marker(anchor, {icon}).addTo(map);
@@ -366,18 +411,18 @@ Promise.all([
   }
 
   refreshDict(vaccination);
-  refreshOdometerDuration();
+  resetOdometer();
 
-  for (const key of Object.keys(dict)) {
-    const item = dict[key];
-    item.odometer = new Odometer({
-      el: document.querySelector(`#label-${key} .odometer`),
-      value: item.count[0]
+  document.getElementById('data-select').addEventListener('click', e => {
+    e.target.classList.add('active');
+  });
+  document.querySelectorAll('.data-select-item').forEach(element => {
+    element.addEventListener('click', e => {
+      display = e.target.id;
+      resetOdometer();
+      document.querySelector('.data-select-item.active').classList.remove('active');
+      e.target.parentNode.classList.remove('active');
     });
-  }
-  total.odometer = new Odometer({
-    el: document.querySelector('#total-count'),
-    value: total.count[0]
   });
 
   var nextFrame;
@@ -385,13 +430,23 @@ Promise.all([
     const now = performance.now();
     const localTime = getLocalTime();
     const t = ease((localTime.toMillis() - startOfToday) / 86400000);
+    const index = display.endsWith('1') ? 0 : 1;
+    const isCount = display.startsWith('data-count');
     if (!(nextFrame > now)) {
       for (const key of Object.keys(dict)) {
         const item = dict[key];
-        const estimate = Math.floor(item.base[0] + item.rate[0] * t);
-        if (item.count[0] < estimate) {
-          item.count[0] = estimate;
-          item.odometer.update(estimate);
+        const estimate = Math.floor(item.base[index] + item.rate[index] * t);
+        if (item.count[index] < estimate) {
+          item.count[index] = estimate;
+          if (isCount) {
+            item.odometer.update(estimate);
+          } else {
+            const ratioEstimate = Math.floor(estimate / item.population * 1000000);
+            if (item.ratio[index] < ratioEstimate) {
+              item.ratio[index] = ratioEstimate;
+              item.odometer.update(ratioEstimate / 10000);
+            }
+          }
           item.flash = 7;
         }
         if (item.flash > 0) {
@@ -401,10 +456,18 @@ Promise.all([
       }
       nextFrame = Math.max((nextFrame || 0) + 1000 / 6, now);
     }
-    const estimate = Math.floor(total.base[0] + total.rate[0] * t);
-    if (total.count[0] < estimate) {
-      total.count[0] = estimate;
-      total.odometer.update(estimate);
+    const estimate = Math.floor(total.base[index] + total.rate[index] * t);
+    if (total.count[index] < estimate) {
+      total.count[index] = estimate;
+      if (isCount) {
+        total.odometer.update(estimate);
+      } else {
+        const ratioEstimate = Math.floor(estimate / total.population * 1000000);
+        if (total.ratio[index] < ratioEstimate) {
+          total.ratio[index] = ratioEstimate;
+          total.odometer.update(ratioEstimate / 10000);
+        }
+      }
     }
     const timeUpdate = localTime.startOf('second').toMillis();
     if (lastTimeUpdate !== timeUpdate) {
@@ -415,7 +478,7 @@ Promise.all([
     if (lastDataUpdate !== dataUpdate) {
       loadJSON('https://nagi-p.com/vaccination/prefecture.json').then(vaccination => {
         refreshDict(vaccination);
-        refreshOdometerDuration();
+        resetOdometer();
       });
       lastDataUpdate = dataUpdate;
     }
